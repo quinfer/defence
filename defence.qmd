@@ -1,3 +1,5 @@
+------------------------------------------------------------------------
+
 ---
 title: "Extreme linkages in the defense and aerospace industry"
 author:
@@ -6,6 +8,8 @@ author:
   - Barry Quinn
 format: html
 bibliography: ref.bib
+execute:
+  echo: false
 ---
 
 ```{r}
@@ -20,15 +24,14 @@ library(GGally)
 library(network)
 library(sna)
 library(RColorBrewer)
-
+library(docxtractr)
+library(corrr)
 raw <- readRDS("data/raw_dat.rds")
 spill_vol <- readRDS("data/spillover_vols.rds")
 spill_rtn <- readRDS("data/spillover_rtns.rds")
 static <- readRDS("data/static.rds")
 spill_rtn$to50 %>% {unique(.$Stock)}->stock_names
 stock_names<-str_remove_all(stock_names,"_") 
-stock_names %>% str_to_title()
-
 raw$prices[-1,] %>% 
   map_df(as.numeric) %>%
   mutate(Date=as.Date(Name,origin = "1899-12-30")) %>%
@@ -47,15 +50,6 @@ raw$prices[-1,] %>%
 country_of_origin<-tibble(stock=unique(dat$stock),country=
 c("China","France","China","China","UK","US","France","US","US","US","US","US","Germany","US","US","UK","France","Singapore","US","France","US"))
 dat %>% left_join(country_of_origin,by="stock")->dat
-```
-
-```{r}
-nodes<-static$rtn50 %>% filter(From=="Including Own")
-static$rtn95 %>% 
-  filter(!(From %in% c("Net","To Others","Including Own"))) %>% 
-  graph_from_data_frame(directed = T) -> net
-net<-simplify(net, edge.attr.comb=list(Weight="sum","ignore"))
-ggnet2(net)
 ```
 
 ## Abstract
@@ -100,6 +94,7 @@ dat %>%
 dat %>%
   ggplot(aes(x=Date,y=return,color=country)) + geom_line() + 
   facet_wrap(~stock) +
+  scale_color_brewer(type='qual',palette = "Set2") +
   theme(text = element_text(size=8),
         legend.position = "bottom",
         legend.title = element_blank()) +
@@ -112,6 +107,7 @@ dat %>%
 dat %>%
   ggplot(aes(x=Date,y=volatility,color=country)) + geom_line() + 
   facet_wrap(~stock) +
+  scale_color_brewer(type='qual',palette = "Set2") +
   theme(text = element_text(size=8),
         legend.position = "bottom",
         legend.title = element_blank()) +
@@ -233,24 +229,24 @@ The scaled version measures the spillover of the idiosyncratic shock affecting v
 
 Various spillover measures are estimated at each quantile and are summaries in Table 2
 
-| Name      | Formula                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Description                                                                                                      |
-|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| Own share | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                      \tilde{\theta_{j\leftarrow i,(\tau)}^h}                                                                                   
-                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                        | The proportion of the h-steps-ahead GFECD of the ith variable that can be attributed to the shocks to variable i |
-| FROM      | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                      F_{i \leftarrow \cdot,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                     
-                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                        | Measures the total spillover from the system to i, capturing external condition effects on i.                    |
-| TO        | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                      T_{\cdot \leftarrow i,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                     
-                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                        | Measures the total spillover from i to the system, capturing the influence of ith node in the network.           |
-| NET       | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                      T_{\cdot \leftarrow i,(\tau)}^h -F_{i \leftarrow \cdot,(\tau)}^h                                                          
-                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                        | Meaures the directional connectedness of variable i.                                                             |
-| TOTAL     | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                      S_{\tau}^h=m^{-1}\sum                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                      F_{i \leftarrow \cdot,(\tau)}^h                                                                                           
-                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                        | Is the sum of the from system estimates.                                                                         |
+| Name      | Formula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Description                                                                                                      |
+|--------------|--------------------------------------------|--------------|
+| Own share | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              \tilde{\theta_{j\leftarrow i,(\tau)}^h}                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              $$                                                                                                                                        | The proportion of the h-steps-ahead GFECD of the ith variable that can be attributed to the shocks to variable i |
+| FROM      | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              F_{i \leftarrow \cdot,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              $$                                                                                                                                        | Measures the total spillover from the system to i, capturing external condition effects on i.                    |
+| TO        | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              T_{\cdot \leftarrow i,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              $$                                                                                                                                        | Measures the total spillover from i to the system, capturing the influence of ith node in the network.           |
+| NET       | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              T_{\cdot \leftarrow i,(\tau)}^h -F_{i \leftarrow \cdot,(\tau)}^h                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              $$                                                                                                                                        | Meaures the directional connectedness of variable i.                                                             |
+| TOTAL     | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              S_{\tau}^h=m^{-1}\sum                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              F_{i \leftarrow \cdot,(\tau)}^h                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              $$                                                                                                                                        | Is the sum of the from system estimates.                                                                         |
 
 : Table 1: Description of modelling outputs
 
@@ -272,13 +268,306 @@ What follows is a comprehensive look at both the return and volatility spillover
 
 ## Return and volatility spillovers at the middle and extremes
 
+### Returns
+
 ```{r}
-spill_rtn$to50
+#| label: fig-rtn50
+#| fig-cap: "Network topology of static results for returns at the 50th %tile"
+static$rtn50 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$rtn50 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$rtn50 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+# links %>% filter
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T) 
+# Generate colors based on media type:
+#colrs <- c("gray50", "tomato", "gold", "red","brown","green")
+# V(net)$color <- colrs[V(net)$Country]
+# V(net)$size <- V(net)$spillover*0.01
+# E(net)$width <- E(net)$spillover
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+
 ```
 
-**Results of return spillovers estimated at the middle and extreme (upper and lower) quantiles**
+```{r}
+#| label: fig-rtn95
+#| fig-cap: "Network topology of static results for returns at the 95th %tile"
+static$rtn95 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$rtn95 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$rtn95 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
 
-**3.2. Results of volatility spillovers estimated at the middle and extreme (upper and lower) quantiles**
+```{r}
+#| label: fig-rtn5
+#| fig-cap: "Network topology of static results for returns at the 5th %tile"
+static$rtn5 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$rtn5 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$rtn5 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+### Volatility
+
+```{r}
+#| label: fig-vol50
+#| fig-cap: "Network topology of static results for volatility at the 50th %tile"
+static$vol50 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$vol50 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$vol50 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+```{r}
+#| label: fig-vol95
+#| fig-cap: "Network topology of static results for volatility at the 95th %tile"
+static$vol95 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$vol95 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$vol95 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+```{r}
+#| label: fig-vol5
+#| fig-cap: "Network topology of static results for volatility at the 5th %tile"
+static$vol5 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$vol5 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$vol5 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+## Time varying spillover results
 
 # Conclusion
 
@@ -303,7 +592,7 @@ Saeed, T., Bouri, E., & Alsulami, H. (2021). Extreme return connectedness and it
 # Appendix
 
 |                                           | Jarque-Bera   | ADF            | PP             |
-|-------------------------------------------|---------------|----------------|----------------|
+|---------------------------|---------------|---------------|---------------|
 | RAYTHEON_TECHNOLOGIES                     | 32636.5\*\*\* | -21.2901\*\*\* | -56.4338\*\*\* |
 | LOCKHEED_MARTIN                           | 30248.2\*\*\* | -56.5766\*\*\* | -56.7477\*\*\* |
 | BOEING                                    | 69973.9\*\*\* | -18.1156\*\*\* | -52.3339\*\*\* |
@@ -331,7 +620,7 @@ Saeed, T., Bouri, E., & Alsulami, H. (2021). Extreme return connectedness and it
 Notes: The sample period is 23 August 2010 -- July 1, 2022, yielding 3095 daily return observations. ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests. They are conducted with a constant. The lag length is selected based on SIC. \*\*\* indicates statistical significance at the 1% level.
 
 |                                           | Jarque-Bera | ADF            | PP             |
-|-------------------------------------------|-------------|----------------|----------------|
+|---------------------------|---------------|---------------|---------------|
 | RAYTHEON_TECHNOLOGIES                     | 9315605     | -8.8644\*\*\*  | -71.0605\*\*\* |
 | LOCKHEED_MARTIN                           | 15682053    | -10.8166\*\*\* | -57.4850\*\*\* |
 | BOEING                                    | 14697726    | -9.4739\*\*\*  | -59.9743\*\*\* |
@@ -429,7 +718,7 @@ Appendix A
 Table A.1. List of global defense and aerospace companies
 
 | **Identifier RIC** | **Company Name**                         | **Market Cap (USD)** | **Country** |
-|--------------------|------------------------------------------|----------------------|-------------|
+|----------------|------------------------|----------------|----------------|
 | RTX.N              | Raytheon Technologies Corp               | 146,531,979,614      | US          |
 | LMT.N              | Lockheed Martin Corp                     | 126,945,196,089      | US          |
 | BA.N               | Boeing Co                                | 98,626,070,245       | US          |
