@@ -8,6 +8,8 @@ format: html
 bibliography: ref.bib
 execute:
   echo: false
+  warning: false
+  message: false
 ---
 
 ```{r}
