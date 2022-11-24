@@ -151,9 +151,9 @@ Based on daily prices, we calculate daily log-returns, and then compute daily vo
 dat %>% filter(volatility>0.06) %>% select(!stock_match_name&!price) %>% flextable() %>% colformat_double(digits = 2) %>% autofit()
 ```
 
-In the period there are volatility in these 3 stocks seems to be most evident in early 2020. Specifically, Furthermore, initial analysis of autocorrelation with each return and volatility using ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests are presented in the appendix table A.1[^defence-1]. shows no evidence of serial correlation.
+In the period there are volatility in these 3 stocks seems to be most evident in early 2020. Specifically, Furthermore, initial analysis of autocorrelation with each return and volatility using ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests are presented in the appendix table A.1[^1]. shows no evidence of serial correlation.
 
-[^defence-1]: They are conducted with a constant. The lag length is selected based on information criteria. \*\*\* indicates statistical significance at the 1% level. series
+[^1]: They are conducted with a constant. The lag length is selected based on information criteria. \*\*\* indicates statistical significance at the 1% level. series
 
 ```{r}
 #| label: fig-cor
@@ -173,9 +173,9 @@ Finally, @fig-cor displays the pearsons pairwise linear correlation coefficients
 
 ## **Methodology**
 
-To study the return and volatility connectedness across 21 global defense and aerospace firms, we use the quantile-VAR-based connectedness approach introduced by [@Ando.2022][^defence-2]. This approach extends the mean-based connectedness framework [@Diebold.2009; @Diebold.2014] and thus allows for capturing extreme connectedness measures estimated at the lower, middle, and upper quantiles. For returns, this allows for capturing the connectedness of return shocks in bear, normal, and bull periods. For volatility, we capture connectedness of volatility shocks in low, middle, and high volatility states.
+To study the return and volatility connectedness across 21 global defense and aerospace firms, we use the quantile-VAR-based connectedness approach introduced by [@Ando.2022][^2]. This approach extends the mean-based connectedness framework [@Diebold.2009; @Diebold.2014] and thus allows for capturing extreme connectedness measures estimated at the lower, middle, and upper quantiles. For returns, this allows for capturing the connectedness of return shocks in bear, normal, and bull periods. For volatility, we capture connectedness of volatility shocks in low, middle, and high volatility states.
 
-[^defence-2]: The methodology has been used by Bouri et al. (2020), Chatziantoniou et al. (2021) and Saeed et al. (2021).
+[^2]: The methodology has been used by Bouri et al. (2020), Chatziantoniou et al. (2021) and Saeed et al. (2021).
 
 We consider a portfolio enivroment, where stocks are indexed i=1,2,...,N, and time periods are indexed t=1,2,...,T. Based on a quantile regression (Koenker, 2005), we consider a quantile-VAR process of p^th^ order for a set of N return (volatility) series for time T, $y_{it}=\{y_{t=1,i=1},\dots,y_{t=T,i=N}\}$ , as given by:
 
@@ -229,24 +229,24 @@ The scaled version measures the spillover of the idiosyncratic shock affecting v
 
 Various spillover measures are estimated at each quantile and are summaries in Table 2
 
-| Name      | Formula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Description                                                                                                      |
-|-----------|--------------------------------------------------|-----------|
-| Own share | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     \tilde{\theta_{j\leftarrow i,(\tau)}^h}                                                                                                         
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     $$                                                                                                                                              | The proportion of the h-steps-ahead GFECD of the ith variable that can be attributed to the shocks to variable i |
-| FROM      | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     F_{i \leftarrow \cdot,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                           
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     $$                                                                                                                                              | Measures the total spillover from the system to i, capturing external condition effects on i.                    |
-| TO        | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     T_{\cdot \leftarrow i,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                           
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     $$                                                                                                                                              | Measures the total spillover from i to the system, capturing the influence of ith node in the network.           |
-| NET       | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     T_{\cdot \leftarrow i,(\tau)}^h -F_{i \leftarrow \cdot,(\tau)}^h                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     $$                                                                                                                                              | Meaures the directional connectedness of variable i.                                                             |
-| TOTAL     | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     S_{\tau}^h=m^{-1}\sum                                                                                                                           
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     F_{i \leftarrow \cdot,(\tau)}^h                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     $$                                                                                                                                              | Is the sum of the from system estimates.                                                                         |
+| Name      | Formula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Description                                                                                                      |
+|--------------|--------------------------------------------|--------------|
+| Own share | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  \tilde{\theta_{j\leftarrow i,(\tau)}^h}                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  $$                                                                                                                                                | The proportion of the h-steps-ahead GFECD of the ith variable that can be attributed to the shocks to variable i |
+| FROM      | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  F_{i \leftarrow \cdot,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  $$                                                                                                                                                | Measures the total spillover from the system to i, capturing external condition effects on i.                    |
+| TO        | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  T_{\cdot \leftarrow i,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  $$                                                                                                                                                | Measures the total spillover from i to the system, capturing the influence of ith node in the network.           |
+| NET       | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  T_{\cdot \leftarrow i,(\tau)}^h -F_{i \leftarrow \cdot,(\tau)}^h                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  $$                                                                                                                                                | Meaures the directional connectedness of variable i.                                                             |
+| TOTAL     | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  S_{\tau}^h=m^{-1}\sum                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  F_{i \leftarrow \cdot,(\tau)}^h                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  $$                                                                                                                                                | Is the sum of the from system estimates.                                                                         |
 
 : Table 1: Description of modelling outputs
 
@@ -262,13 +262,17 @@ Measuring the nature and strength of financial market linkages has typically bee
 
 > Does the topology of the network change with the size of the shocks that affect the system?
 
-In the context of global defense stocks, we are mostly interesting in the nature of network dynamics due to rare conflict events. In terms of financial risk management the propagation of idiosyncratic risk contagion is often defined in relation to the difference in the way that the shock propagate during rate events relative to normal times [@Londono.2019]. Our analysis thus attempts to nvestigating how much of the future uncertainty associated with stock i can be attribtuted to the idiosyncratic shocks coming from variable j as the shock size varies.
+In the context of global defense stocks, we are mostly interesting in the nature of network dynamics due to rare conflict events. In terms of financial risk management the propagation of idiosyncratic risk contagion is often defined in relation to the difference in the way that the shock propagate during rate events relative to normal times [@Londono.2019]. Our analysis thus attempts to investigating how much of the future uncertainty associated with stock i can be attribtuted to the idiosyncratic shocks coming from variable j as the shock size varies.
 
 What follows is a comprehensive look at both the return and volatility spillover of our sample of aerospace and defense stocks. The sampling period includes both normal and extreme market conditions, including some conflict periods.
 
-## Return and volatility spillovers at the middle and extremes
+## Network topology of spillovers
+
+To understand the aggregate spillover intensity among our defence and aerospace stocks we use visualise the results of a full-sample analysis for both returns and volatility at the median, 5th and 95th percentile. These network visualisation represent the strength of the bilateral spillovers by relative thickness of the edges, while the size of each node is proportional to the square root of the total spillover (inwards and outwards) [@Ando.2022]. Finally, the country of origin of the company is represented by colour.
 
 ### Returns
+
+@fig-rtn50, @fig-rtn5 and @fig-rtn95 illustrate the network visualisation of the static bilateral spillover effects of the 21 return series, while @fig-vol50, @fig-vol5, and @fig-vol95 show the same visualisation but for the volatility series. Some similar patterns emerge, notably that consists size of the US stock nodes representing the large aggregate spillover effects in both directions. Rayeon Technology in all plots is the experience the largest aggregate spillover effects, indicative of its dominance in the industry. However there are some important differences also. Firstly, the strongest individual pairwise spillover effects are observed at the median conditional distribution. These stronger pairwise effects are observed mostly within countries. Notably is the Chinese stocks, which shows the strongest linkages within country but some of the weakest linkages outside their country of origin. In contrast, at the extremes of the distribution all pairwise spillover effects are weaker. This finding is consistent with previous studies, in times of stress the network is characterised by a larger number of weaker bilateral linkages resulting in an increase in the weight completeness of the network [@Dungey.2019; @Ando.2022]. In our context, this would mean that while shocks spillovers between individual stocks pairs are small, the overall connectedness of the network is increasing in times of stress, meaning that the shock propogratio
 
 ```{r}
 #| label: fig-rtn50
@@ -287,7 +291,8 @@ static$rtn50 %>%
   filter(To =="From Others") %>%
   rename(name=From,spillover_from_others=spillover) %>%
   select(!To),by="name") %>%
-  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others),
+         spillover=sqrt(spillover)) %>%
   drop_na()-> nodes
 docx<-read_docx("draft.docx")
 docx_extract_all(docx)->all_tbls
@@ -298,8 +303,8 @@ docx_extract_all(docx)->all_tbls
 ) %>%
   mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
 nodes$name <- nodes$`Company Name`
-nodes %>%
-  mutate(size=rank(spillover)) -> nodes
+# nodes %>%
+#   mutate(size=rank(spillover)) -> nodes
 links %>%
   left_join(nodes %>% select(name,`Company Name`),
             by=c("From"="name")) %>%
@@ -342,7 +347,8 @@ static$rtn95 %>%
   filter(To =="From Others") %>%
   rename(name=From,spillover_from_others=spillover) %>%
   select(!To),by="name") %>%
-  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others),
+         spillover=sqrt(spillover)) %>%
   drop_na()-> nodes
 docx<-read_docx("draft.docx")
 docx_extract_all(docx)->all_tbls
@@ -353,8 +359,8 @@ docx_extract_all(docx)->all_tbls
 ) %>%
   mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
 nodes$name <- nodes$`Company Name`
-nodes %>%
-  mutate(size=rank(spillover)) -> nodes
+# nodes %>%
+#   mutate(size=rank(spillover)) -> nodes
 links %>%
   left_join(nodes %>% select(name,`Company Name`),
             by=c("From"="name")) %>%
@@ -401,8 +407,8 @@ docx_extract_all(docx)->all_tbls
 ) %>%
   mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
 nodes$name <- nodes$`Company Name`
-nodes %>%
-  mutate(size=rank(spillover)) -> nodes
+# nodes %>%
+#   mutate(size=rank(spillover)) -> nodes
 links %>%
   left_join(nodes %>% select(name,`Company Name`),
             by=c("From"="name")) %>%
@@ -440,7 +446,8 @@ static$vol50 %>%
   filter(To =="From Others") %>%
   rename(name=From,spillover_from_others=spillover) %>%
   select(!To),by="name") %>%
-  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others),
+         spillover=sqrt(spillover)) %>%
   drop_na()-> nodes
 docx<-read_docx("draft.docx")
 docx_extract_all(docx)->all_tbls
@@ -451,8 +458,6 @@ docx_extract_all(docx)->all_tbls
 ) %>%
   mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
 nodes$name <- nodes$`Company Name`
-nodes %>%
-  mutate(size=rank(spillover)) -> nodes
 links %>%
   left_join(nodes %>% select(name,`Company Name`),
             by=c("From"="name")) %>%
@@ -592,7 +597,7 @@ Saeed, T., Bouri, E., & Alsulami, H. (2021). Extreme return connectedness and it
 # Appendix
 
 |                                           | Jarque-Bera   | ADF            | PP             |
-|------------------------------|--------------|--------------|--------------|
+|---------------------------|---------------|---------------|---------------|
 | RAYTHEON_TECHNOLOGIES                     | 32636.5\*\*\* | -21.2901\*\*\* | -56.4338\*\*\* |
 | LOCKHEED_MARTIN                           | 30248.2\*\*\* | -56.5766\*\*\* | -56.7477\*\*\* |
 | BOEING                                    | 69973.9\*\*\* | -18.1156\*\*\* | -52.3339\*\*\* |
@@ -620,7 +625,7 @@ Saeed, T., Bouri, E., & Alsulami, H. (2021). Extreme return connectedness and it
 Notes: The sample period is 23 August 2010 -- July 1, 2022, yielding 3095 daily return observations. ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests. They are conducted with a constant. The lag length is selected based on SIC. \*\*\* indicates statistical significance at the 1% level.
 
 |                                           | Jarque-Bera | ADF            | PP             |
-|------------------------------|--------------|--------------|--------------|
+|---------------------------|---------------|---------------|---------------|
 | RAYTHEON_TECHNOLOGIES                     | 9315605     | -8.8644\*\*\*  | -71.0605\*\*\* |
 | LOCKHEED_MARTIN                           | 15682053    | -10.8166\*\*\* | -57.4850\*\*\* |
 | BOEING                                    | 14697726    | -9.4739\*\*\*  | -59.9743\*\*\* |
@@ -647,78 +652,12 @@ Notes: The sample period is 23 August 2010 -- July 1, 2022, yielding 3095 daily 
 
 Notes: The sample period is 23 August 2010 -- July 1, 2022, yielding 3095 daily volatility observations. Volatility is computed as squared returns. ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests. They are conducted with a constant. The lag length is selected based on SIC. \*\*\* indicates statistical significance at the 1% level.
 
-The sample period is 23 August 2010 -- July 1, 2022.
-
-##Table 2. Correlation matrix of daily volatility\*\*
-
-The sample period is 23 August 2010 -- July 1, 2022.
-
-Table 3. Return spillovers estimated at the middle quantile (τ = 0.50)
-
-Table 4. Return spillovers estimated at the upper quantile (τ = 0.95)
-
-Table 5. Return spillovers estimated at the lower quantile (τ = 0.05)
-
-Table 3. Volatility spillovers estimated at the middle quantile (τ = 0.50)
-
-Table 7. Volatility spillovers estimated at the upper quantile (τ = 0.95)
-
-Table 8. Volatility spillovers estimated at the lower quantile (τ = 0.05)
-
-##Figure 1. Total connectedness index for returns - estimated at the middle quantile (τ= 0.5)\*\*
-
-Figure 2. Total connectedness index for returns - estimated at the upper quantile (τ= 0.95)
-
-Figure 3. Total connectedness index for returns - estimated at the lower quantile (τ= 0.05)
-
-Figure . TO spillovers index for returns - estimated at the middle quantile (τ= 0.5)
-
-Figure . FROM spillovers index for returns - estimated at the middle quantile (τ= 0.5)
-
-Figure . NET spillovers index for returns - estimated at the middle quantile (τ= 0.5)
-
-Figure . TO spillovers index for returns - estimated at the upper quantile (τ= 0.95)\*\*
-
-Figure . FROM spillovers index for returns - estimated at the upper quantile (τ= 0.95)
-
-Figure . NET spillovers index for returns - estimated at the upper quantile (τ= 0.95)
-
-Figure . TO spillovers index for returns - estimated at the lower quantile (τ= 0.05)
-
-Figure . FROM spillovers index for returns - estimated at the upper quantile (τ= 0.05)
-
-Figure . NET spillovers index for returns - estimated at the upper quantile (τ= 0.05)
-
-Figure . Total connectedness index for volatility - estimated at the middle quantile (τ= 0.5)
-
-Figure . Total connectedness index for volatility - estimated at the upper quantile (τ= 0.95)
-
-Figure . Total connectedness index for volatility - estimated at the lower quantile (τ= 0.05)
-
-Figure . TO spillovers index for volatility - estimated at the middle quantile (τ= 0.5)
-
-Figure . FROM spillovers index for volatility - estimated at the middle quantile (τ= 0.5)
-
-Figure . NET spillovers index for volatility - estimated at the middle quantile (τ= 0.5)\*\*
-
-Figure . TO spillovers index for volatility - estimated at the upper quantile (τ= 0.95)\*\*
-
-Figure . FROM spillovers index for volatility - estimated at the upper quantile (τ= 0.95)\*\*
-
-Figure . NET spillovers index for volatility - estimated at the upper quantile (τ= 0.95)\*\*
-
-**Figure . TO spillovers index for volatility - estimated at the lower quantile (τ= 0.05)**
-
-Figure . FROM spillovers index for volatility - estimated at the lower quantile (τ= 0.05)\*\*
-
-Figure . NET spillovers index for volatility - estimated at the lower quantile (τ= 0.05)
-
 Appendix A
 
 Table A.1. List of global defense and aerospace companies
 
 | **Identifier RIC** | **Company Name**                         | **Market Cap (USD)** | **Country** |
-|---------------|---------------------------|---------------|---------------|
+|----------------|------------------------|----------------|----------------|
 | RTX.N              | Raytheon Technologies Corp               | 146,531,979,614      | US          |
 | LMT.N              | Lockheed Martin Corp                     | 126,945,196,089      | US          |
 | BA.N               | Boeing Co                                | 98,626,070,245       | US          |
