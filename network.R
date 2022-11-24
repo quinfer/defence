@@ -21,7 +21,8 @@ static$rtn95 %>%
   filter(To =="From Others") %>%
   rename(name=From,spillover_from_others=spillover) %>%
   select(!To),by="name") %>%
-  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) -> nodes
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
 docx<-read_docx("draft.docx")
 docx_extract_all(docx)->all_tbls
  all_tbls[[11]] %>% assign_colnames(row=1) -> info
@@ -49,5 +50,5 @@ colrs <- c("gray50", "tomato", "gold", "red","brown","green")
 V(net)$color <- colrs[V(net)$Country]
 V(net)$size <- V(net)$spillover
 E(net)$width <- E(net)$spillover
-V(net)$deg
-ggnet2(net,label = T,label.size = 2,edge.alpha = 0.4, color = "Country",size = "spillover")
+plot(net)
+ggnet2(net,label = T,label.size = 2,edge.alpha = 0.4, color = "Country")->p95_rtn

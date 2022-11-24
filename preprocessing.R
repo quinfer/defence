@@ -57,16 +57,16 @@ all_tbls[c(5:10)] %>%
           pivot_longer(!From,names_to = "To") %>%
           rename(spillover=value) %>%
           mutate(From=str_to_title(From),
-                 To=str_to_title(To)))) -> static
-# %>%
-#   left_join(nodes %>% select(name,`Company Name`),
-#             by=c("From"="name")) %>%
-#   mutate(From=`Company Name`) %>%
-#   select(!`Company Name`) %>%
-#   left_join(nodes %>% select(name,`Company Name`),
-#             by=c("To"="name")) %>%
-#   mutate(To=`Company Name`) %>%
-#   select(!`Company Name`)
+                 To=str_to_title(To)) %>%
+          left_join(nodes %>% select(name,`Company Name`),
+                    by=c("From"="name")) %>%
+          mutate(From=ifelse(!is.na(`Company Name`),`Company Name`,From)) %>%
+          select(!`Company Name`) %>%
+          left_join(nodes %>% select(name,`Company Name`),
+                    by=c("To"="name")) %>%
+          mutate(To=ifelse(!is.na(`Company Name`),`Company Name`,To)) %>%
+          select(!`Company Name`))) -> static
 names(static) <- c("rtn50","rtn95","rtn5","vol50","vol95","vol5")
+unique(static$rtn95$To)
 saveRDS(static, "data/static.rds")
 
