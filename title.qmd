@@ -1,0 +1,44 @@
+---
+title: "Investigating Extreme Linkage Topology in the Aerospace and Defence Industry"
+author:
+  - name: "Elie Bouri"
+    email: "elie.elbouri@lau.edu.lb"
+    orcid: "0000-0003-2628-5027"
+    attributes:
+      corresponding: true
+    affiliations:
+      - ref: lab
+  - name: "Barry Quinn"
+    email: "b.quinn@qub.ac.uk"
+    orcid: "0000-0003-2628-5027"
+    affiliations:
+      - ref: qub
+  - name: "Lisa Sheenan"
+    email: "l.sheenan@qub.ac.uk"
+    orcid: "0000-0001-8756-4631"
+    affiliations:
+      - ref: qub
+affiliations:
+  - id: qub
+    name: "Queen's Management School"
+    city: 'Belfast'
+    state: "N.Ireland"
+  - id: lab
+    name: "Lebanon American University"
+    city: "Jbeil, Lebanon"
+    state: "LB"
+format:
+  elsevier-pdf:
+    keep-tex: true 
+    fig-pos: "H"
+bibliography: ref.bib
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+---
+## Abstract {.unnumbered}
+This paper analyses a system of return and volatility spillovers  among 21 global defense and aerospace (A&D) companies covering six countries, namely the United States (US), United Kingdom (UK), France, Germany, China and Singapore, across three continents from August, 2010 to July 1, 2022 using quantile-based models. The results show that both return and volatility spillover measures are not stable over time, and those estimated at normal market conditions (at the middle quantile), intensify during crisis periods such as the COVID-19 outbreak. There is also evidence of intensified spillover effects for return shocks at both lower and upper quantiles, which exceed the return spillover estimated at the middle quantile, thus indicating significantly different behavior across different market conditions. The level of spillovers at the lower quantile in the return system is considerably larger than that in the volatility system, but the level of volatility spillover is extremely high at the upper quantile only and exhibits low variability. There is also evidence of differences between the companies analysed. For example, Chinese defense stocks seem segmented from the rest of defense stocks under normal return conditions and moderate volatility state, but they somewhat integrated with global defense stocks under extreme return condition and volatility state. This suggests that they are not valuable investments for portfolio diversification under substantial bear or bull markets when returns and volatility are extremely low or high. Further analysis of the drivers of returns and volatility spillovers reveals that geopolitical risk consistently plays a significant role, especially during the pandemic and war period, without ignoring the importance of macro-economic and financial variables. These results have implications for investors concerned with the management of their stock portfolio under various market conditions and policymakers seeking to design policies under normal and volatile market mechanisms.
+
+**keywords:** Aerospace and defence companies; Ukrainian war; Russia; quantile vector-autoregression; COVID-19.

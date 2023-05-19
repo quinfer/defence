@@ -70,3 +70,17 @@ names(static) <- c("rtn50","rtn95","rtn5","vol50","vol95","vol5")
 unique(static$rtn95$To)
 saveRDS(static, "data/static.rds")
 
+## Add names and country
+ocx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+all_tbls[[11]] %>% assign_colnames(row=1) -> info
+spill_rtn$to50 %>% distinct(Stock) %>% 
+  arrange(Stock) %>%
+  bind_cols(info %>% arrange(`Company Name`)) %>%
+  rename(name=`Company Name`) %>%
+  mutate(name=str_remove_all(name,
+                             " Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))-> index
+spill_rtn %>% map(~left_join(.x,index,by="Stock")) -> spillover_rtns
+spill_vol %>% map(~left_join(.x,index,by="Stock")) -> spillover_vols
+saveRDS(spillover_vols,file = "data/spillover_vols.rds")
+saveRDS(spillover_rtns,file = "data/spillover_rtns.rds")

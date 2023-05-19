@@ -1,5 +1,15 @@
 {
   "defence.qmd": {
-    "defence.html": "5ddb7f4f"
+    "defence.html": "5ddb7f4f",
+    "defence.tex": "e9e35eda"
+  },
+  "word.qmd": {
+    "word.docx": "c348251e"
+  },
+  "title.qmd": {
+    "title.tex": "f9352b9e"
+  },
+  "defence_docx.qmd": {
+    "defence_docx.docx": "c92dcb4c"
   }
 }

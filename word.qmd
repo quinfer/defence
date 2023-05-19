@@ -1,0 +1,901 @@
+---
+title: "Extreme linkages in the defence and aerospace industry"
+author:
+  - Elie El Bouri
+  - Lisa Sheenan
+  - Barry Quinn
+format:
+  docx:
+    toc: true
+    number-sections: true
+    highlight-style: github
+bibliography: ref.bib
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(flextable)
+library(lubridate)
+library(stringr)
+library(datawizard)
+library(igraph)
+library(GGally)
+library(network)
+library(sna)
+library(RColorBrewer)
+library(docxtractr)
+library(corrr)
+raw <- readRDS("data/raw_dat.rds")
+spill_vol <- readRDS("data/spillover_vols.rds")
+spill_rtn <- readRDS("data/spillover_rtns.rds")
+static <- readRDS("data/static.rds")
+spill_rtn$to50 %>% {unique(.$Stock)}->stock_names
+stock_names<-str_remove_all(stock_names,"_") 
+raw$prices[-1,] %>% 
+  map_df(as.numeric) %>%
+  mutate(Date=as.Date(Name,origin = "1899-12-30")) %>%
+  select(-Name) %>%
+  pivot_longer(!Date,values_to = "price",names_to = "stock") %>%
+  filter(Date>=dmy("23-08-2010")) %>%
+  mutate(stock_match_name=str_remove_all(stock,"\\'|\\(|\\)|\\.|-"),
+         stock_match_name=str_remove_all(stock_match_name," "),
+         stock=str_to_title(stock)) %>%
+  filter(stock_match_name %in% stock_names) %>%
+  arrange(stock,Date) %>%
+  group_by(stock) %>%
+  mutate(return=log(price/lag(price)),
+         volatility=return^2) -> dat
+
+country_of_origin<-tibble(stock=unique(dat$stock),country=
+c("China","France","China","China","UK","US","France","US","US","US","US","US","Germany","US","US","UK","France","Singapore","US","France","US"))
+dat %>% left_join(country_of_origin,by="stock")->dat
+```
+
+## Abstract
+
+Using quantile-based models, we study the system of return and volatility spillovers among 21 global defence and aerospace companies covering six countries (US, UK, France, Germany, China, Singapore) and three continents (North America, Europe, and Asia) over the period 23 August 2010 -- July 1, 2022. The results are summarized as follows. Firstly, both return and volatility spillover measures fluctuate with time, and especially those estimated at the middle quantiles tend to intensity during crisis periods such as the COVID-19 outbreak. Secondly, there is evidence of intensified spillover effects for return shocks at both lower and upper quantiles, exceeding the return spillover estimated at the middle quantile, i.e. around normal market conditions. Thirdly, the level of spillovers at the lower quantile in the return system is considerably larger than that in the volatility system. However, the level of volatility spillover is extremely high at the upper quantile only, and exhibits low variability. Fourthly, Raytheon Technologies plays an important to the system of return spillovers during normal and bull market conditions, whereas Lockheed Martin plays the same role during the bear market condition. For the system of volatility shocks, General Dynamics is a major net transmitter during the middle volatility state, whereas Raytheon Technologies is a major net transmitter during both low and high volatility states. These results have implications for investors concerned with the management of their stock portfolio under various market conditions and policymakers seeking to design policies under normal and volatile market mechanisms. 
+
+**Keywords:** defence and aerospace companies; Ukrainian war; Russia; quantile vector-autoregression; COVID-19.
+
+# Introduction
+
+On 24th February 2022 Russia invaded Ukraine, initiating a war that has led to wide scale devastation, the consequences of which will last far into the future. While the humanitarian effects are almost incomprehensible this event has also substantially impacted financial markets, the global economy, energy prices and the fortunes of defence companies.
+
+# **Literature**
+
+McDonald and Kendall (1994) analyse the effects of war on the U.S. defence industry, focussing on 16 firms that provided military equipment to the Department of defence. Applying a cumulative prediction error (CPE) technique they find that defence firm stock prices tend to increase as a result of military actions.
+
+Federle et al. (2022) analyse stock market responses to the war in Ukraine, finding that those firms located closer to Ukraine suffered from a 'proximity penalty', experiencing more negative equity returns during the four-weeks surrounding the beginning of the war.
+
+# **Data and methodology**
+
+## **Data**
+
+Our dataset comprises the daily closing prices of 21 global defence and aerospace companies belonging to six countries (US, UK, France, Germany, China, Singapore) and three continents (North America, Europe, and Asia). The selected companies are chosen to be large and liquid, with an individual market capitalization exceeding nine billion USD. The list of 21 companies is provided in Appendix Table A.1.
+
+```{r}
+#| label: fig-prices
+#| fig-cap: "Price series levels"
+dat %>%
+  ggplot(aes(x=Date,y=price,color=country)) + geom_line() + 
+  facet_wrap(~stock,scales = "free_y") +
+  theme(text = element_text(size=8),
+        legend.position = "bottom",
+        legend.title = element_blank()) +
+  labs(x="")
+```
+
+@fig-prices plots the price series levels and highlighting their country of incorporation. The sample period is 23 August 2010 -- July 1, 2022, as dictated by the price availability, especially for the Chinese AECC AVIATION POWER 'A', which mostly exhibited zero daily fluctuations before 23 August 2010. The price series levels reveal a number of distinct groupings in their movements. Generally, price series levels show common movement with a regime shift towards greater volatility around 2020. Notably, the Chinese stocks experience a shock in 2016 of similar magnitude to that of 2020. <!--# Add some story for this shock -->
+
+```{r}
+#| label: fig-rtns
+#| fig-cap: "Daily returns"
+dat %>%
+  ggplot(aes(x=Date,y=return,color=country)) + geom_line() + 
+  facet_wrap(~stock) +
+  scale_color_brewer(type='qual',palette = "Set2") +
+  theme(text = element_text(size=8),
+        legend.position = "bottom",
+        legend.title = element_blank()) +
+  labs(x="")
+```
+
+```{r }
+#| label: fig-vols
+#| fig-cap: "Daily Volatilities"
+dat %>%
+  ggplot(aes(x=Date,y=volatility,color=country)) + geom_line() + 
+  facet_wrap(~stock) +
+  scale_color_brewer(type='qual',palette = "Set2") +
+  theme(text = element_text(size=8),
+        legend.position = "bottom",
+        legend.title = element_blank()) +
+  labs(x="")
+```
+
+```{r}
+#| label: tbl-sumstats
+#| tbl-cap: "Selected summary statistics for returns and volatilities"
+#| echo: false
+
+dat %>% select(!price&!country&!stock_match_name) %>%
+  pivot_longer(!Date&!stock,names_to = 'Type',values_to = "value") %>%
+  group_by(Type,stock) %>%
+  drop_na() %>%
+  filter(Type=="return") %>%
+  summarise(mean_rtn=mean(value),std_rtn=sd(value),skewness_rtn=skewness(value)$Skewness,kurtosis_rtn=kurtosis(value)$Kurtosis) %>% ungroup() %>%
+  select(!Type) %>%
+  flextable()->ft1
+dat %>% select(!price&!country&!stock_match_name) %>%
+  pivot_longer(!Date&!stock,names_to = 'Type',values_to = "value") %>%
+  group_by(Type,stock) %>%
+  drop_na() %>%
+  filter(Type=="volatility") %>%
+  summarise(mean_vol=mean(value),std_vol=sd(value),skewness_vol=skewness(value)$Skewness,kurtosis_vol=kurtosis(value,type=1)$Kurtosis) %>% ungroup() %>%
+  select(!Type&!stock) %>%
+  flextable()->ft2
+cbind(ft1$body$dataset,ft2$body$dataset) %>% flextable() %>%
+  colformat_double(digits=4) %>%
+  add_header(colwidths=c(4,4),
+             values = c("Returns Summary","Volatility Summary")) %>%
+  add_footer_lines("Notes: The sample period is 23 August 2010 – July 1, 2022, yielding 3095 daily return observations.")
+  
+```
+
+Based on daily prices, we calculate daily log-returns, and then compute daily volatility as the squared of daily returns. The summary statistics of daily returns and volatility series are presented in @tbl-sumstats, respectively. The distributions of the daily returns series are mostly skewed to the left and exhibit fat "tailedness", with Boeing, Airbus Rolls-Royce, Safran and Transdigm experiencing the highest daily volatility. @tbl-Xtremes identifies the 5 highest daily volatilities scores mostly around the end of march 2020 at the height of the uncertainty of the COVID-19 pandemic. @fig-vol and @fig-rtns provide a time series view of this thickness. This global economic turmoil has been dubbed the "Global Dash for Cash" shock in a recent New York Fed paper [@NYfed.2022] and suggestive of the stronger spillover effects between between bond markets and institutions evidenced in @Dungey.2019.
+
+```{r}
+#| label: tbl-Xtremes
+#| tbl-cap: "Extremely votality events"
+dat %>% filter(volatility>0.06) %>% select(!stock_match_name&!price) %>% flextable() %>% colformat_double(digits = 2) %>% autofit()
+```
+
+Furthermore, initial analysis of autocorrelation with each return and volatility using ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests are presented in the appendix table A.1[^1]. shows no evidence of serial correlation.
+
+[^1]: They are conducted with a constant. The lag length is selected based on information criteria. \*\*\* indicates statistical significance at the 1% level. series
+
+```{r}
+#| label: fig-cor
+#| tbl-cap: "Correlation matrix of daily returns"
+dat %>% 
+  select(stock,Date,return)%>% 
+  drop_na() %>%
+  pivot_wider(names_from = "stock",values_from = "return") %>%
+  select(!Date) %>%
+  correlate() %>% 
+  rplot(print_cor = TRUE) +
+  theme(axis.text.x = element_text(angle = 45,hjust = 1))
+  
+```
+
+Finally, @fig-cor displays the pearsons pairwise linear correlation coefficients for the daily returns series. Unsurprisingly many of the stock returns series are highly correlated with between Northrop Grumman and Lockheed Martin. Both firms are leading suppliers to the US defence department, and regularly win joint contracts of work. @fig-cor also reveals that the Chinese stocks are highly correlated with each other but uncorrelated with the firms incorporated in the US and Europe.
+
+## **Methodology**
+
+To study the return and volatility connectedness across 21 global defence and aerospace firms, we use the quantile-VAR-based connectedness approach introduced by [@Ando.2022][^2]. This approach extends the mean-based connectedness framework [@Diebold.2009; @Diebold.2014] and thus allows for capturing extreme connectedness measures estimated at the lower, middle, and upper quantiles. For returns, this allows for capturing the connectedness of return shocks in bear, normal, and bull periods. For volatility, we capture connectedness of volatility shocks in low, middle, and high volatility states.
+
+[^2]: The methodology has been used by Bouri et al. (2020), Chatziantoniou et al. (2021) and Saeed et al. (2021).
+
+We consider a portfolio enivroment, where stocks are indexed i=1,2,...,N, and time periods are indexed t=1,2,...,T. Based on a quantile regression (Koenker, 2005), we consider a quantile-VAR process of p^th^ order for a set of N return (volatility) series for time T, $y_{it}=\{y_{t=1,i=1},\dots,y_{t=T,i=N}\}$ , as given by:
+
+$$
+y_{t}=c_{i(\tau)}+\sum_{j=1}^{p} B_{j,(\tau)} y_{t-j}+e_{t(\tau)}, t=1,\dots,T
+$$
+
+where, $c_{(\tau)}$ denotes a vector of constant terms at quantile τ, $B_{j(\tau)}$ represents the matrix of the j^th^ lagged coefficients of the dependent variable at quantile τ, with i =1,..., p, and $e_{t(\tau)}$ denotes a vector of error terms at quantile τ. Equation (1) is estimated by assuming that the error terms conform to the population quantile restriction, $Q_t(e_{t(\tau)} |y_{t=1},\dots,y_{t=p})=0$ .
+
+We express the τth conditional quantile of response y as:
+
+$$
+Q_t(y_t |y_{t=1},\dots,y_{t=p})=c_{(\tau)}+\hat{B_{i(\tau)}} y_{t-i}
+$$
+
+Following the approach of @Diebold.2014 , we compute return and volatility connectedness measures based on a quantile variance decomposition.
+
+We represent Equation [(3)](https://www.sciencedirect.com/science/article/pii/S1062940819304085#e0015) as an infinite order vector moving average process:
+
+$$
+y_t=\mu_{(\tau)}+\sum_{s=0}^{\infty}A_{s(\tau)}e_{t-s(\tau)}, t=1,\dots.T
+$$
+
+where,
+
+$$
+\begin{align*}
+\mu{(\tau)}= \frac{c_{\tau}}{\left (I_n-B_{1(\tau)}-\dots-B_{p(\tau)} \right)} \\
+A_{s(\tau)}= \begin{cases} 0, s<0 \\ I_n, s=0 \\ B_{1(\tau)}A_{s-1(\tau)}+\dots+B_{p(\tau)}A_{s-p(\tau)}, s>0 \end{cases} \\
+\text{and $y_t$ is given by the sum of $e_{t(\tau)}$}
+\end{align*}
+$$
+
+, and is given by the sum of .
+
+The generalized forecast error variance decomposition (GFEVD),$\theta^h_{i,j}$, is computed as in @Diebold.2014. The GFEVD reflects the contribution of the i^th^ stock return (volatility) to the variance of the forecast error of the stock return (volatility) i^th^ at h-steps ahead and is defined as:
+
+$$
+\theta^{(h)}_{j \leftarrow i,(\tau)}= \frac{\sigma_{ii}^{-1}\sum_{l=0}^{h}(e_j^{'}h_h \Omega_{(\tau)} e_j)^2}{\sum_{h=0}^{H-1}(e_i^{'}h_h \Omega_{(\tau)} e_i)}
+$$
+
+where, V is the variance matrix of the vector of residuals, $\sigma_{ii}$ <!--# Where is this defined in Ando2022? -->is the j^th^ diagonal element of the V matrix, and $e_i$denotes a vector with a value of 1 for the i^th^ element and 0 otherwise.
+
+Its scaled version,$\theta_{j\leftarrow i,(\tau)}^h$ , is represented as:
+
+$$
+\theta_{j\leftarrow i,(\tau)}^h=\frac{\theta^{(h)}_{j \leftarrow i,(\tau)}}{\sum_{j=1}^N \theta^{(h)}_{j \leftarrow i,(\tau)}}
+$$
+
+The scaled version measures the spillover of the idiosyncratic shock affecting variable i onto variable j [@Ando.2022].
+
+Various spillover measures are estimated at each quantile and are summaries in Table 2
+
+| Name      | Formula                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Description                                                                                                      |
+|------------------|------------------------------------|------------------|
+| Own share | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      \tilde{\theta_{j\leftarrow i,(\tau)}^h}                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                                                                                        | The proportion of the h-steps-ahead GFECD of the ith variable that can be attributed to the shocks to variable i |
+| FROM      | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      F_{i \leftarrow \cdot,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                                                                                        | Measures the total spillover from the system to i, capturing external condition effects on i.                    |
+| TO        | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      T_{\cdot \leftarrow i,(\tau)}^h =\sum_{j=1,i \ne j}^m \theta_{j\leftarrow i,(\tau)}^h                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                                                                                        | Measures the total spillover from i to the system, capturing the influence of ith node in the network.           |
+| NET       | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      T_{\cdot \leftarrow i,(\tau)}^h -F_{i \leftarrow \cdot,(\tau)}^h                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                                                                                        | Meaures the directional connectedness of variable i.                                                             |
+| TOTAL     | $$                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      S_{\tau}^h=m^{-1}\sum                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      F_{i \leftarrow \cdot,(\tau)}^h                                                                                                                                                           
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      $$                                                                                                                                                                                        | Is the sum of the from system estimates.                                                                         |
+
+: Table 1: Description of modelling outputs
+
+Table 1 describes the modelling output measurements. The third column describes how these can be interpreted in terms of their network dynamics. Note that, by construction, `own share` and `from system` sum to one for i=1,2,..,m, buy `to system` can take values greater than or less than one.
+
+The lag order of the quantile VARs is selected based on SIC. It is equal to 1 for the quantile-VAR of return series and 2 for the quantile-VAR of volatility series. As for the forecast horizon (H), we use 10 days.
+
+Furthermore, we conduct a time-varying spillover analysis (Diebold and Yilmaz (2014) based on a rolling window of 200 days. To assess the robustness of our results, we use a fixed window length of 200 days and a 5-step forecast horizon and show that our spillover results remain almost the same, suggesting their robustness to the window size and forecast horizon. These results are not reported here but are available on request from the authors. (If needed, I can add these results to Appendix).
+
+# **Results**
+
+Measuring the nature and strength of financial market linkages has typically been done using conventional mean estimators. @Ando.2022 argue, systemic shocks are likely to be much larger than average and need not be the case that large shocks propagate in the same way as smaller shocks thus using regression quantile can answer the key research questions:
+
+> Does the topology of the network change with the size of the shocks that affect the system?
+
+In the context of global defence stocks, we are mostly interesting in the nature of network dynamics due to rare conflict events. In terms of financial risk management the propagation of idiosyncratic risk contagion is often defined in relation to the difference in the way that the shock propagate during rate events relative to normal times [@Londono.2019]. Our analysis thus attempts to investigating how much of the future uncertainty associated with stock i can be attribtuted to the idiosyncratic shocks coming from variable j as the shock size varies.
+
+What follows is a comprehensive look at both the return and volatility spillover of our sample of aerospace and defence stocks. The sampling period includes both normal and extreme market conditions, including some conflict periods.
+
+## Network topology of spillovers
+
+To understand the aggregate spillover intensity among our defence and aerospace stocks we use visualise the results of a full-sample analysis for both returns and volatility at the median, 5th and 95th percentile. These network visualisation represent the strength of the bilateral spillovers by relative thickness of the edges, while the size of each node is proportional to the square root of the total spillover (inwards and outwards) [@Ando.2022]. Finally, the country of origin of the company is represented by colour.
+
+### Returns
+
+@fig-rtn50, @fig-rtn5 and @fig-rtn95 illustrate the network visualisation of the static bilateral spillover effects of the 21 return series, while @fig-vol50, @fig-vol5, and @fig-vol95 show the same visualisation but for the volatility series. Some similar patterns emerge, notably that consists size of the US stock nodes representing the large aggregate spillover effects in both directions. Rayeon Technology in all plots is the experience the largest aggregate spillover effects, indicative of its dominance in the industry. However there are some important differences also. Firstly, the strongest individual pairwise spillover effects are observed at the median conditional distribution. These stronger pairwise effects are observed mostly within countries. Notably is the Chinese stocks, which shows the strongest linkages within country but some of the weakest linkages outside their country of origin. In contrast, at the extremes of the distribution all pairwise spillover effects are weaker. This finding is consistent with previous studies, in times of stress the network is characterised by a larger number of weaker bilateral linkages resulting in an increase in the weight completeness of the network [@Dungey.2019; @Ando.2022]. In our context, this would mean that while shocks spillovers between individual stocks pairs are small, the overall connectedness of the network is increasing in times of stress, meaning that the shock propogratio
+
+```{r}
+#| label: fig-rtn50
+#| fig-cap: "Network topology of static results for returns at the 50th %tile"
+static$rtn50 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$rtn50 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$rtn50 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others),
+         spillover=sqrt(spillover)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+# nodes %>%
+#   mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+# links %>% filter
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T) 
+# Generate colors based on media type:
+#colrs <- c("gray50", "tomato", "gold", "red","brown","green")
+# V(net)$color <- colrs[V(net)$Country]
+# V(net)$size <- V(net)$spillover*0.01
+# E(net)$width <- E(net)$spillover
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+
+```
+
+```{r}
+#| label: fig-rtn95
+#| fig-cap: "Network topology of static results for returns at the 95th %tile"
+static$rtn95 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$rtn95 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$rtn95 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others),
+         spillover=sqrt(spillover)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+# nodes %>%
+#   mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+```{r}
+#| label: fig-rtn5
+#| fig-cap: "Network topology of static results for returns at the 5th %tile"
+static$rtn5 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$rtn5 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$rtn5 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+# nodes %>%
+#   mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+### Volatility
+
+```{r}
+#| label: fig-vol50
+#| fig-cap: "Network topology of static results for volatility at the 50th %tile"
+static$vol50 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$vol50 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$vol50 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others),
+         spillover=sqrt(spillover)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+```{r}
+#| label: fig-vol95
+#| fig-cap: "Network topology of static results for volatility at the 95th %tile"
+static$vol95 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$vol95 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$vol95 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+```{r}
+#| label: fig-vol5
+#| fig-cap: "Network topology of static results for volatility at the 5th %tile"
+static$vol5 %>% 
+  filter(!(From %in% c("Net","To Others","Including Own","From Others"))) %>%
+  filter(!(To %in% c("Net","To Others","Including Own","From Others"))) %>%
+  drop_na()-> links
+links$spillover <- as.numeric(links$spillover)
+static$vol5 %>% 
+  filter(From =="Including Own") %>%
+  rename(name=To,spillover_including_own=spillover) %>%
+  select(!From) %>%
+  left_join(
+static$vol5 %>% 
+  filter(To =="From Others") %>%
+  rename(name=From,spillover_from_others=spillover) %>%
+  select(!To),by="name") %>%
+  mutate(spillover=as.numeric(spillover_including_own)+as.numeric(spillover_from_others)) %>%
+  drop_na()-> nodes
+docx<-read_docx("draft.docx")
+docx_extract_all(docx)->all_tbls
+ all_tbls[[11]] %>% assign_colnames(row=1) -> info
+ bind_cols(
+  nodes %>% arrange(name),
+  info %>% arrange(`Company Name`)
+) %>%
+  mutate(`Company Name`=str_remove_all(`Company Name`," Corp| Co| SE| Inc| PLC| SA| Ltd| AG"))->nodes
+nodes$name <- nodes$`Company Name`
+nodes %>%
+  mutate(size=rank(spillover)) -> nodes
+links %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("From"="name")) %>%
+  mutate(From=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  left_join(nodes %>% select(name,`Company Name`),
+            by=c("To"="name")) %>%
+  mutate(To=`Company Name`) %>%
+  select(!`Company Name`) %>%
+  rename(weight=spillover) %>%
+  mutate(weight=weight/10)-> links
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net <- igraph::simplify(net, remove.multiple = F, remove.loops = T)
+ggnet2(net,label = T,label.size = 2,size="spillover", edge.size = "weight",
+       edge.alpha = 0.2, color = "Country", color.palette ="Set2") +
+  scale_size_discrete(guide="none")
+```
+
+## Time varying spillover results
+
+So far, we have analysed the measures of connectedness for the entire sample using static network topology visualisation. Similar to other work, we illustrate meaningful quantile variation in the topology of both returns and volatility networks of defence stocks. Furthermore, we find that bilateral spillover of idiosyntractic risk are stronger for both returns and volatility systems of defence stocks. One important take away from this static apporach is restricting network analysis to the middle of the distribution will fail to capture the full extent of dependence when large shock occur <!--# Is there some literature of stock risk spillover that corrobates this -->
+
+In this section, we conduct a rolling analysis with a quantile VAR to capture the time variability in the return spillovers in the normal times (median of the conditional distribution) and abnormal market conditions (upper and lower tails of the conditional distribution). We use a fixed window length of 200[^3] days and a 10-step forecast horizon. This will provide a comprehensive study of connectedness, at the center and in the left and right tail dependence.
+
+[^3]: Existing studies in the Deibold-Yilmaz network literature use windows ranging from 100-250 days. Sensitivity analysis has been done and available upon request.
+
+### Total system connectivity
+
+```{r}
+#| layout-ncol: 1
+#| label: fig-TCI
+#| fig-cap: Comparing total connectedness of returns and volatility
+#| fig-subcap: 
+#|   - "Conditional Median"
+#|   - "5th%ile"
+#|   - "95th%ile"
+#|   - "95th%ile - 5th%ile"
+
+
+# list("ECB cuts interest rates to a record lowo f 0.5%"='May 1,2013',
+#      'U.S. government shutdown'="Oct 1, 2013",
+#      "ECB announces negative interest rate policy"="June, 5, 2014",
+#      "Russia began annexation of Crimea"="February 20,2014",
+#      "Start of war in Donbas by pro-Russian activists"= "April 7, 2014",
+#      "October 2014 flash crash"="Oct 15,2014",
+#      "Brexit referendum"= "June 23, 2016", 
+#      "Federal Reserve raises interest rates"= "December 14, 2016", 
+#      "the United Kingdom invokes article 50 of the Lisbon Treaty"="March 29, 2017", 
+#      "snap election held in the United Kingdom"="June 8, 2017",
+#      "Dash for cash crisis in bond market peaks"="March 18, 2020",
+#      "Russia initiated a special military operation in Donbas"="Feb 24,2022")->imp_dates
+
+list("Russia began annexation of Crimea"="February 20,2014",
+     "Start of war in Donbas by pro-Russian activists"= "April 7, 2014",
+     "October 2014 flash crash"="Oct 15,2014",
+     "Brexit referendum"= "June 23, 2016", 
+     "Federal Reserve raises interest rates"= "December 14, 2016", 
+     "the United Kingdom invokes article 50 of the Lisbon Treaty"="March 29, 2017", 
+     "snap election held in the United Kingdom"="June 8, 2017",
+     "Dash for cash crisis in bond market peaks"="March 18, 2020",
+     "Russia initiated a special military operation in Donbas"="Feb 24,2022")->imp_dates
+
+labels_dat<-tibble(
+  label=letters[1:length(imp_dates)],
+xvalues=parse_date_time(imp_dates,"mdy"),
+description=names(imp_dates))
+
+spill_rtn$TCI %>% select(Date,Stock,Spillover) %>% 
+  pivot_wider(names_from = "Stock",values_from = "Spillover") %>%
+  mutate(RTD=`TCI 95`- `TCI 05`) %>%
+  pivot_longer(!Date,names_to = "Stock",values_to = "Spillover")%>%
+  mutate(Stock=factor(Stock,levels = c("TCI 50","TCI 95","TCI 05","RTD")))->spill_rtn$TCI
+spill_vol$TCI %>% select(Date,Stock,Spillover) %>%  pivot_wider(names_from = "Stock",values_from = "Spillover") %>%
+  mutate(RTD=`TCI 95`- `TCI 05`) %>%
+  pivot_longer(!Date,names_to = "Stock",values_to = "Spillover") %>%
+  mutate(Stock=factor(Stock,levels = c("TCI 50","TCI 95","TCI 05","RTD"))) -> spill_vol$TCI
+
+spill_rtn$TCI %>% rename(Return=Spillover) %>%
+  left_join(spill_vol$TCI %>% rename(Volatility=Spillover),
+            by=c("Date","Stock")) -> TCI
+
+TCI %>% 
+  filter(Stock=="TCI 50") %>%
+  select(!Stock) %>%
+  pivot_longer(!Date,names_to = "Stock",values_to = 'Spillover') %>%
+  ggplot(aes(x=Date,y=Spillover)) + geom_line() + 
+  geom_vline(xintercept =labels_dat$xvalues,linetype=4,colour="red") +
+  facet_wrap(~Stock,nrow = 4,scales = "free_y") +
+  theme(legend.position = 'none') +
+  xlab(label = "") +
+  geom_text(aes(x=xvalues,y=0,label=label),data = labels_dat,nudge_y = -1)
+  
+TCI %>% 
+  filter(Stock=="TCI 05") %>%
+  select(!Stock) %>%
+  pivot_longer(!Date,names_to = "Stock",values_to = 'Spillover') %>%
+  ggplot(aes(x=Date,y=Spillover)) + geom_line() + 
+  geom_vline(xintercept =labels_dat$xvalues,linetype=4,colour="red") +
+  facet_wrap(~Stock,nrow = 4,scales = "free_y") +
+  theme(legend.position = 'none') +
+  xlab(label = "") +
+   geom_text(aes(x=xvalues,y=0,label=label),data = labels_dat,nudge_y = -1)
+
+TCI %>% 
+  filter(Stock=="TCI 95") %>%
+  select(!Stock) %>%
+  pivot_longer(!Date,names_to = "Stock",values_to = 'Spillover') %>%
+  ggplot(aes(x=Date,y=Spillover)) + geom_line() + 
+  geom_vline(xintercept =labels_dat$xvalues,linetype=4,colour="red") +
+  facet_wrap(~Stock,nrow = 4,scales = "free_y") +
+  theme(legend.position = 'none') +
+  xlab(label = "") +
+   geom_text(aes(x=xvalues,y=0,label=label),data = labels_dat,nudge_y = -1)
+
+TCI %>% 
+  filter(Stock=="RTD") %>%
+  select(!Stock) %>%
+  pivot_longer(!Date,names_to = "Stock",values_to = 'Spillover') %>%
+  ggplot(aes(x=Date,y=Spillover)) + geom_line() + 
+  geom_vline(xintercept =labels_dat$xvalues,linetype=4,colour="red") +
+  facet_wrap(~Stock,nrow = 4,scales = "free_y") +
+  theme(legend.position = 'none') +
+  xlab(label = "") +
+   geom_text(aes(x=xvalues,y=0,label=label),data = labels_dat,nudge_y = -1)
+```
+
+```{r}
+#| label: tbl-dates
+#| tbl-cap: "Important Dates"
+labels_dat %>% rename(date=xvalues) %>% mutate(date=ymd(date)) %>% flextable() %>% autofit()
+```
+
+To guide the reader the dates of some important events are marked by vertical red dashed lines. These dates a described in @tbl-dates. The TOTAL connectedness index at the conditional median (a measure of the average connectedness) and extremes for returns and volatility systems are given in @fig-TCI. In the spirit of @Ando.2022, the final pair of graphs shows the relative tail dependence (RTD) calculated as the different between the 95th and 5th percentile. Positive (negative) values of RTD indicate stronger (weaker) dependence in the right tail compared to the left tail. For returns we interpret increases (decreases) in RTD as evidence of a rising (falling) connectedness of financial performance of defence stocks. For volatility we interpret increases (decreases) in RTD as evidence of rising (falling) connectedness of financial uncertainty in defence stocks, or more succinctly, rising (failing) financial fragility as positive (negative) volatility shocks deseminate through the system of defence stocks
+
+@fig-TCI (a) shows that in normal conditions the connectedness in the returns system tends to be larger than that of the volatility system of defence stocks. The connectedness reaches it peak at point h (the dash for cash event) at the beginning of the COVID-19 pandemic. Importantly, while the connectedness levels are greater in the returns system the volatility system connectedness exhibits higher sensitivity to shocks, with the largest regime shift at point h.
+
+@fig-TCI (b) and (c) shows the time variation total system connectivity at the 5th and 95th percentiles of the conditional distributions. It is noted that return system connectedness is persistently high (above 90) at both tails of the conditional distribution, while volatility system connnectedness in period of extremely low volatility (5th%ile) is more sensitivity temporal events.
+
+@fig-TCI (d) shows that time variation of the RTD for returns is symmetrical over the period $\pm 3$ indicative of both an equally spread of positive and negative feedback loops in return spillover effects. In contrast, @fig-TCI (d) shows the persistent onesidedness of the RTD for the volatility series, with the right tail of the condition distribution dominant throughout the period. This asymmetry suggests across defence is amplified by the size of that uncertainty. Taken together, these results suggest that only the total connectedness of defence stocks' volatility is affected by the size of the volatility in the system.
+
+Finally, we consider the chronological order prominent global economic and conflict turmoil in the context of median and extreme linkages in the systems of volatility and returns. Some striking patterns emerge in this chronological ordering. First from the beginning of the conflict in Crimea (a + b) to the Brexit referendum (d) the RTD for volatility trends down, indicative of an increase in resilence (reduction in fragility) in the defence system. This is coupled with the fact that RTD was mostly positive for the return system in this sub-period. Taken together these findings suggested that upper tail financial performance (right-tail of the conditional distribution) in this period create some spillover effects, while the financial fragility of the system weakened. There is also a notable regime shift at dash for cash date (h) where the financial fragility (the volatility system) fell by 50% (TCI = 40 to TCI = 20).
+
+### Individual connectivity
+
+To disentagle the total connectedness varation further explore the net spillover effects ($T_{\cdot \leftarrow i,(\tau)}^h -F_{i \leftarrow \cdot,(\tau)}^h$). The net spillover estimates for returns at the median, lower and upper tails for returns and volatility are given in @fig-netrtn and @fig-netvol, respectively.
+
+```{r}
+#| label: fig-netrtn
+#| fig-cap: Net spillover of individual stock returns
+#| fig-subcap: 
+#|  - Median
+#|  - 5th%ile
+#|  - 95th%ile
+
+spill_rtn$net50 %>%
+  ggplot(aes(Date,Spillover,fill=Country)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=0, ymax=Spillover)) +
+  facet_wrap(~name,scales="free_y") +
+  theme(legend.position = "top",
+        text = element_text(size=6)) +
+  scale_fill_brewer(type = "qual",palette=2) +
+  guides(fill = guide_legend(nrow = 1))
+
+spill_rtn$net5 %>%
+  ggplot(aes(Date,Spillover,fill=Country)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=0, ymax=Spillover)) +
+  facet_wrap(~name,scales="free_y") +
+  theme(legend.position = "top",
+        text = element_text(size=6)) +
+  scale_fill_brewer(type = "qual",palette=2) +
+  guides(fill = guide_legend(nrow = 1))
+
+spill_rtn$not95 %>%
+  ggplot(aes(Date,Spillover,fill=Country)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=0, ymax=Spillover)) +
+  facet_wrap(~name, scales="free_y") +
+  theme(legend.position = "top",
+        text = element_text(size=6)) +
+  scale_fill_brewer(type = "qual",palette=2) +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+```{r}
+#| label: fig-netvol
+#| fig-cap: Net spillover for individual stock volatility
+#| fig-subcap: 
+#|   - Median
+#|   - 5th%ile
+#|   - 95th%ile
+
+spill_vol$net50 %>%
+  ggplot(aes(Date,Spillover,fill=Country)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=0, ymax=Spillover)) +
+  facet_wrap(~name,scales = "free_y") +
+  theme(legend.position = "top",
+        text = element_text(size=6)) +
+  scale_fill_brewer(type = "qual",palette=2) +
+  guides(fill = guide_legend(nrow = 1))
+
+spill_vol$net05 %>%
+  ggplot(aes(Date,Spillover,fill=Country)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=0, ymax=Spillover)) +
+  facet_wrap(~name,scales = "free_y") +
+  theme(legend.position = "top",
+        text = element_text(size=6)) +
+  scale_fill_brewer(type = "qual",palette=2) +
+  guides(fill = guide_legend(nrow = 1))
+
+spill_vol$net50 %>%
+  ggplot(aes(Date,Spillover,fill=Country)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin=0, ymax=Spillover)) +
+  facet_wrap(~name,scales = "free_y") +
+  theme(legend.position = "top",
+        text = element_text(size=6)) +
+  scale_fill_brewer(type = "qual",palette=2) +
+  guides(fill = guide_legend(nrow = 1))
+
+```
+
+We group these plots by country and some interesting patterns emerge. Firstly, at the median of distributions, the three chinese defence stocks are net spillover recievers in both their financial performance and volatility. This may be indicative of their lack of global maturity in these stocks compare to the other members of the system. Secondly, the US defence stocks, which dominate the sample, are overall net transmitters of both volatility and return spillover effects. More precisely, in normal periods (median of the conditional distribution), Raytheon Technologies and General Dynamics are dominant net transmitters. This pattern also replicates in the extremes of the conditional distributions. While this is unsurprising give Raytheon Technologies are the largest global defence stock; General Dynamics is the 6th largest. <!--# Is there a corporate strategy rationale here? --> Compared to the system of returns, the system of volatilities shows much more time variation, perhaps indicative of the high sensitivity to market fluctuations of financial risk. <!--# For me these huge variations are more indicative of instabilitiy of VAR models and a statistical savvy reviewer might pick this up. -->
+
+Take a close look at the prominent dates graphed in @fig-netrtn and @fig-netvol, there are notable positive spikes at the start of the COVID-19 pandemic the largest appearing in the median of the conditional distribution of the volatility system. The largest of these are in Raytheon Technologies and Howmet Aerospace, who both spike at over 200 in net transmission terms. Within the US stocks, Rayton and General Dynamics are the most transmitive in both their median and extreme spillover effects. Finally, in terms of magnitude, Singapore technology engineering, are the largest reciever of spillover effects at both the median and the extremes which is not surprising given their market capitalisaiton compared to the others ( see @tbl-mktcap for details of size of stocks).
+
+# Conclusion
+
+Our study considers connectedness of sample of the leading defence and aerospace stocks in normal and extreme market periods. Using quantile-based VAR models we explore the middle, lower, and upper parts of the conditional distribution of both financial returns and volatility.
+
+The main results show evidence of variation in the quantile structure of the system of connectedness among leading aerospace and defence stocks. Our network topology analysis reveal that shocks propagate more strongly at both tails of the conditional distribution than at the conditional median. The structure of spillovers at both upper and lower tails is dissimilar to that seen at the conditional median. In the tails, we see the magnitude of bilateral connects are smaller but there are many more of them. In the latter, connectedness is stronger within countries but the volatility and return systems are less connected overall. Take together, these results suggest that the evolution of the dependence structure at tails is masked when connectedness measures are estimated at the conditional median. Accordingly, applying quantile-based models of connectedness is recommended as a natural extension to the pervasive average-based models of connectedness.
+
+The application of a time-varying analysis shows that the degree of tail-dependence varies with time and intensifies during periods of economic and conflict turmoil. In fact, lower tail dependence is positively correlated with upper tail dependence, suggesting that extreme negative events are associated with an increase in stabilizing lower-tail connectedness coupled with a concurrent increase in destabilizing upper-tail connectedness. Furthermore, we uncover evidence of asymmetry between the behaviour of volatility spillovers in lower quantiles and upper quantiles. The findings on extreme connectedness measures in upper and lower tails offer a nuanced view of the importance of tail risk propagation within the network system of defence stocks. They point to the necessity to use the above quantile-based method as part of prudential regulatory and surveillance mechanisms.
+
+By extending our knowledge regarding the effects of the size and sign of the spillovers on the system of connectedness among leading defence stocks, policymakers can use appropriate policy tools and surveillance mechanisms to manage potential adversative impacts occurring from extreme risk spillovers in the defence and aerospace market. Otherwise, a focus only on the average shocks within the system of connectedness is likely to lead to the formulation and application of inappropriate and insufficient stabilizing policies during extreme events.
+
+# References
+
+Ando, T., Greenwood-Nimmo, M., & Shin, Y. (2022). Quantile Connectedness: Modeling Tail Behavior in the Topology of Financial Networks. Management Science, 68(4), [2401-2431](tel:2401-2431).
+
+Bouri, E., Lucey B., Saeed, T., & Vo X.V. (2020). Extreme spillovers across Asian-Pacific currencies: A quantile-based analysis. International Review of Financial Analysis, 72, 101605.
+
+Chatziantoniou, I., Gabauer, D., & Stenfors, A. (2021). Interest rate swaps and the transmission mechanism of monetary policy: A quantile connectedness approach. Economics Letters, 204, 109891.
+
+Diebold, F. X., & Yılmaz, K. (2014). On the network topology of variance decompositions: Measuring the connectedness of financial firms. Journal of Econometrics, 182(1), 119-134.
+
+Federle, J., Meier, A., Müller, G.J. and Sehn, V., 2022. Proximity to War: The stock market response to the Russian invasion of Ukraine.
+
+Koenker, R. (2005). Quantile Regression (Econometric Society Monographs). Cambridge University Press. Cambridge, UK. https://doi.org/10.1017/CBO9780511754098.
+
+McDonald, J.E. and Kendall, W.R., (1994). Measuring the economic effects of political events: War and the US defence industry. Journal of Applied Business Research (JABR), 10(1), pp.57-61.
+
+Saeed, T., Bouri, E., & Alsulami, H. (2021). Extreme return connectedness and its determinants between clean/green and dirty energy investments. Energy Economics, 96, 105017.
+
+# Appendix
+
+|                                           | Jarque-Bera   | ADF            | PP             |
+|--------------------|------------------|------------------|------------------|
+| RAYTHEON_TECHNOLOGIES                     | 32636.5\*\*\* | -21.2901\*\*\* | -56.4338\*\*\* |
+| LOCKHEED_MARTIN                           | 30248.2\*\*\* | -56.5766\*\*\* | -56.7477\*\*\* |
+| BOEING                                    | 69973.9\*\*\* | -18.1156\*\*\* | -52.3339\*\*\* |
+| AIRBUS                                    | 25224.5\*\*\* | -41.3354\*\*\* | -53.1875\*\*\* |
+| NORTHROP_GRUMMAN                          | 7974.9\*\*\*  | -57.6092\*\*\* | -57.9145\*\*\* |
+| GENERAL_DYNAMICS                          | 5069.4\*\*\*  | -56.0303\*\*\* | -56.0601\*\*\* |
+| L3HARRIS_TECHNOLOGIES                     | 13927.4\*\*\* | -37.8971\*\*\* | -58.3311\*\*\* |
+| SAFRAN                                    | 52968.0       | -27.1859\*\*\* | -54.0423\*\*\* |
+| TRANSDIGM_GROUP                           | 73823.1       | -27.2219\*\*\* | -58.6233\*\*\* |
+| BAE_SYSTEMS                               | 2985.9        | -54.9012\*\*\* | -54.8972\*\*\* |
+| THALES                                    | 7219.4        | -52.8929\*\*\* | -52.8478\*\*\* |
+| AECC_AVIATION_POWER\_\_A\_                | 1434.8        | -50.3413\*\*\* | -50.2565\*\*\* |
+| HEICO                                     | 8582.7        | -37.9681\*\*\* | -57.4079\*\*\* |
+| AVIC_SHENYANG_AIRCRAFT\_\_A\_             | 697.9         | -50.4755\*\*\* | -50.432\*\*\*  |
+| TEXTRON                                   | 13536.4       | -56.7672\*\*\* | -56.7572\*\*\* |
+| HOWMET_AEROSPACE                          | 14968.7       | -55.6534\*\*\* | -55.6534\*\*\* |
+| AVIC_XI_AN_AIRCRAFT_INDUSTRY_GROUP\_\_A\_ | 1320.5        | -51.6737\*\*\* | -51.6765\*\*\* |
+| DASSAULT_AVIATION                         | 7293.6        | -59.0881\*\*\* | -59.3442\*\*\* |
+| MTU_AERO_ENGINES\_\_XET\_\_HLDG\_         | 17643.4       | -53.5665\*\*\* | -53.5378\*\*\* |
+| ROLLS_ROYCE_HOLDINGS                      | 66286.0       | -42.2588\*\*\* | -53.3912\*\*\* |
+| SINGAPORE_TECHS_ENGR\_                    | 5663.1        | -58.7849\*\*\* | -58.7819\*\*\* |
+
+: Table A1. Stationary testing of return series
+
+Notes: The sample period is 23 August 2010 -- July 1, 2022, yielding 3095 daily return observations. ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests. They are conducted with a constant. The lag length is selected based on SIC. \*\*\* indicates statistical significance at the 1% level.
+
+|                                           | Jarque-Bera | ADF            | PP             |
+|--------------------|------------------|------------------|------------------|
+| RAYTHEON_TECHNOLOGIES                     | 9315605     | -8.8644\*\*\*  | -71.0605\*\*\* |
+| LOCKHEED_MARTIN                           | 15682053    | -10.8166\*\*\* | -57.4850\*\*\* |
+| BOEING                                    | 14697726    | -9.4739\*\*\*  | -59.9743\*\*\* |
+| AIRBUS                                    | 23033869    | -11.5572\*\*\* | -65.0529\*\*\* |
+| NORTHROP_GRUMMAN                          | 4856762     | -10.5620\*\*\* | -55.0415\*\*\* |
+| GENERAL_DYNAMICS                          | 4133764     | -9.4617\*\*\*  | -64.1503\*\*\* |
+| L3HARRIS_TECHNOLOGIES                     | 9512974     | -11.8003\*\*\* | -53.9115\*\*\* |
+| SAFRAN                                    | 31946613    | -11.6048\*\*\* | -62.0761\*\*\* |
+| TRANSDIGM_GROUP                           | 18184391    | -8.6389\*\*\*  | -55.6789\*\*\* |
+| BAE_SYSTEMS                               | 2117775     | -16.0119\*\*\* | -50.1728\*\*\* |
+| THALES                                    | 4625049     | -16.3795\*\*\* | -60.5916\*\*\* |
+| AECC_AVIATION_POWER\_\_A\_                | 38428       | -9.8441\*\*\*  | -62.2551\*\*\* |
+| HEICO                                     | 5142764     | -9.5040\*\*\*  | -65.6277\*\*\* |
+| AVIC_SHENYANG_AIRCRAFT\_\_A\_             | 19848       | -10.2645\*\*\* | -62.4013\*\*\* |
+| TEXTRON                                   | 2525317     | -10.6989\*\*\* | -55.9341\*\*\* |
+| HOWMET_AEROSPACE                          | 8990159     | -15.2603\*\*\* | -62.3260\*\*\* |
+| AVIC_XI_AN_AIRCRAFT_INDUSTRY_GROUP\_\_A\_ | 51874       | -10.7828\*\*\* | -60.2592\*\*\* |
+| DASSAULT_AVIATION                         | 10416628    | -12.8417\*\*\* | -55.6529\*\*\* |
+| MTU_AERO_ENGINES\_\_XET\_\_HLDG\_         | 4074035     | -9.3358\*\*\*  | -66.7664\*\*\* |
+| ROLLS_ROYCE_HOLDINGS                      | 66237434    | -5.3944\*\*\*  | -63.2794\*\*\* |
+| SINGAPORE_TECHS_ENGR\_                    | 9984241     | -12.0964\*\*\* | -67.2677\*\*\* |
+
+: Stationarity analysis of volatility series {#tbl-stationarity}
+
+Notes: The sample period is 23 August 2010 -- July 1, 2022, yielding 3095 daily volatility observations. Volatility is computed as squared returns. ADF (Augmented Dickey-Fuller) and PP (Phillips-Perron) stationarity tests. They are conducted with a constant. The lag length is selected based on SIC. \*\*\* indicates statistical significance at the 1% level.
+
+| **Identifier RIC** | **Company Name**                         | **Market Cap (USD)** | **Country** |
+|------------------|-------------------|------------------|------------------|
+| RTX.N              | Raytheon Technologies Corp               | 146,531,979,614      | US          |
+| LMT.N              | Lockheed Martin Corp                     | 126,945,196,089      | US          |
+| BA.N               | Boeing Co                                | 98,626,070,245       | US          |
+| AIR.PA             | Airbus SE                                | 80,725,491,421       | France      |
+| NOC.N              | Northrop Grumman Corp                    | 74,608,919,355       | US          |
+| GD.N               | General Dynamics Corp                    | 68,671,930,259       | US          |
+| LHX.N              | L3harris Technologies Inc                | 52,270,661,495       | US          |
+| SAF.PA             | Safran SA                                | 44,491,097,467       | France      |
+| TDG.N              | TransDigm Group Inc                      | 32,831,888,090       | US          |
+| BAES.L             | BAE Systems PLC                          | 30,800,737,305       | UK          |
+| TCFP.PA            | Thales SA                                | 26,768,225,374       | France      |
+| 600893.SS          | AECC Aviation Power Co Ltd               | 18,774,820,321       | China       |
+| HEI.N              | HEICO Corp                               | 18,046,618,051       | US          |
+| 600760.SS          | Avic Shenyang Aircraft Co Ltd            | 15,837,867,867       | China       |
+| TXT.N              | Textron Inc                              | 14,706,071,116       | US          |
+| HWM.N              | Howmet Aerospace Inc                     | 13,580,896,080       | US          |
+| 000768.SZ          | Avic XiAn Aircraft Industry Group Co Ltd | 13,213,649,293       | China       |
+| AM.PA              | Dassault Aviation SA                     | 11,958,644,778       | France      |
+| MTXGn.DE           | MTU Aero Engines AG                      | 11,075,850,164       | Germany     |
+| RR.L               | Rolls-Royce Holdings PLC                 | 9,761,495,628        | UK          |
+| STEG.SI            | Singapore Technologies Engineering Ltd   | 9,243,974,029        | Singapore   |
+
+: Market capitalisation of stocks {#tbl-mktcap}
