@@ -72,18 +72,16 @@ The paper proceeds as follows. Section 2 describes the dataset and Section 3 the
 
 Our dataset comprises the daily closing prices of 21 global defence and aerospace companies belonging to six countries (US, UK, France, Germany, China, Singapore) and three continents (North America, Europe, and Asia). The selected companies are chosen to be large and liquid, with an individual market capitalization exceeding nine billion USD. The list of 21 companies is provided in Appendix @tbl-ref.  @fig-mktcapshare shows the share our sample capture of the total market capitalisation of the A&D global sector.
 
-::: {#fig-elephants layout-ncol=2}
+::: {#fig-data layout-ncol=1}
 
 ![Prices](plots/fig-prices.png){#fig-prices width="100%"}
 
 ![Returns](plots/fig-rtns.png){#fig-rtn width="100%"}
+![Volatilites](plots/fig-vol.png){#fig-vol width="100%"}
 
-Famous Elephants
+Raw data on daily prices and returns
 :::
 
-![Prices](
-
-![]
 @fig-prices plots the price series levels and highlights country of incorporation, whereas @fig-rtns displays the log-return series. The price series levels reveal a number of distinct groupings in their movements. For many cases, price series levels show common movement with a regime shift towards higher prices and larger volatility around 2020. Notably, the Chinese stocks experience a shock in 2016 of similar magnitude to that of 2020. In July 2016 it was reported that China had performed a week of military drills in the South China Sea amid legal debates regarding its territorial claims to areas in the region, which could account for this increase in volatility. Daily volatility is calculated as the squared of daily log-returns and presented in @fig-vols. Notably, the volatility of some A&D companies such as Beoing, Transdigm, Safran, and Rolls-Royce experienced a spike around the pandemic period and the Russia-Ukraine war.
 
 ```{r}
@@ -318,7 +316,7 @@ description=names(imp_dates))
 ```{r}
 #| label: tbl-dates
 #| tbl-cap: "Important Dates"
-labels_dat %>% rename(date=xvalues) %>% mutate(date=ymd(date)) %>% kbl(format = "latex",booktabs = TRUE) %>% kable_styling(latex_options = "HOLD_position")
+labels_dat %>% rename(date=xvalues) %>% mutate(date=ymd(date)) %>% kbl() %>% kable_styling()
 ```
 
 The TOTAL connectedness index at the conditional median (a measure of the average connectedness) and extremes for returns and volatility systems are presented in Figure 11. In the spirit of Ando, Greenwood-Nimmo, and Shin (2022), the final pair of Figures illustrate the relative tail dependence (RTD) calculated as the difference between the 95th and 5th percentile. Positive (negative) values of RTD indicate stronger (weaker) dependence in the right tail compared to the left tail. For returns, we interpret increases (decreases) in RTD as evidence of a rising (falling) connectedness of financial performance of defense stocks. For volatility, we interpret increases (decreases) in RTD as evidence of rising (falling) connectedness of financial uncertainty in defense stocks, or more succinctly, rising (failing) financial fragility as positive (negative) volatility shocks disseminate through the system of defense stocks
